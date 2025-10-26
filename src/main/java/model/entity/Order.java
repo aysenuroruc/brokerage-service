@@ -6,6 +6,7 @@ import lombok.Setter;
 import model.OrderSide;
 import model.OrderStatus;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -20,8 +21,8 @@ public class Order {
     private String assetName;
     @Enumerated(EnumType.STRING)
     private OrderSide orderSide;
-    private Double size;
-    private Double price;
+    private BigDecimal size;
+    private BigDecimal price;
     @Enumerated(EnumType.STRING)
     private OrderStatus status;
     private LocalDateTime createDate;

@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(name = "assets")
 @Getter
@@ -14,8 +16,8 @@ public class Asset {
     private Long id;
     private Long customerId;
     private String assetName; // ASELS, TRY ..
-    private Double size;
-    private Double usableSize;
+    private BigDecimal size;
+    private BigDecimal usableSize;
 
     public Asset() {}
 }

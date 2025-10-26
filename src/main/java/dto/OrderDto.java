@@ -1,5 +1,6 @@
 package dto;
 
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
@@ -12,19 +13,21 @@ import java.math.BigDecimal;
 public class OrderDto {
     private Long id;
 
-    @NotNull(message = "Customer ID is required")
+    @NotNull(message = "Customer ID cannot be null")
     private Long customerId;
 
-    @NotBlank(message = "Asset name is required")
+    @NotBlank(message = "Asset name cannot be blank")
     private String assetName;
 
-    @NotBlank(message = "Order side is required (BUY or SELL)")
-    private String orderSide;
+    @NotBlank(message = "Order side cannot be blank (BUY or SELL)")
+    private String orderSide; // Could be enum in later refactor (BUY, SELL)
 
-    @NotNull(message = "Size is required")
-    private Integer size;
+    @NotNull(message = "Order size cannot be null")
+    @DecimalMin(value = "0.01", message = "Order size must be greater than 0")
+    private BigDecimal size;
 
-    @NotNull(message = "Price is required")
+    @NotNull(message = "Price cannot be null")
+    @DecimalMin(value = "0.01", message = "Price must be greater than 0")
     private BigDecimal price;
 
     private String status;
