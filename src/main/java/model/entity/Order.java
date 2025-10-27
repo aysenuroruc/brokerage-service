@@ -19,11 +19,18 @@ public class Order {
     private Long id;
     private Long customerId;
     private String assetName;
+
     @Enumerated(EnumType.STRING)
     private OrderSide orderSide;
+
     private BigDecimal size;
     private BigDecimal price;
+
     @Enumerated(EnumType.STRING)
     private OrderStatus status;
+
     private LocalDateTime createDate;
+
+    @Version
+    private Long version;
 }

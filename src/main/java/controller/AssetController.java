@@ -1,6 +1,6 @@
 package controller;
 
-import dto.AssetDto;
+import model.dto.AssetDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;

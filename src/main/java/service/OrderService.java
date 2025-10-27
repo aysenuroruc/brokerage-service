@@ -1,13 +1,13 @@
 package service;
 
-import dto.OrderDto;
+import model.dto.OrderDto;
 
 import java.util.List;
 
 public interface OrderService {
     OrderDto createOrder(OrderDto orderDto);
 
-    List<OrderDto> listOrdersByCustomer(Long customerId);
+    List<OrderDto> getOrdersByCustomer(Long customerId);
 
-    void cancelOrder(Long orderId);
+    OrderDto getOrderById(Long orderId);
 }

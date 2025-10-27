@@ -1,109 +1,79 @@
 package service.impl;
 
-import dto.OrderDto;
-import exception.BusinessException;
-import exception.ResourceNotFoundException;
+import jakarta.persistence.EntityNotFoundException;
+import lombok.RequiredArgsConstructor;
+import model.dto.OrderDto;
 import lombok.extern.slf4j.Slf4j;
 import mapper.OrderMapper;
-import model.OrderSide;
 import model.OrderStatus;
-import model.entity.Asset;
 import model.entity.Order;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import repository.AssetRepository;
+import repository.CustomerRepository;
 import repository.OrderRepository;
 import service.OrderService;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
 
-    @Autowired
-    private OrderRepository orderRepository;
-
-    @Autowired
-    private OrderMapper orderMapper;
-
-    @Autowired
-    private AssetRepository assetRepository;
+    private final OrderRepository orderRepository;
+    private final OrderMapper orderMapper;
+    private final AssetRepository assetRepository;
+    private final CustomerRepository customerRepository;
 
     @Override
+    @Transactional
     public OrderDto createOrder(OrderDto orderDto) {
+        log.info("Creating new order for customerId={}, asset={}", orderDto.getCustomerId(), orderDto.getAssetName());
 
-        Asset asset = assetRepository.findByCustomerIdAndAssetName(
-                        orderDto.getCustomerId(), orderDto.getAssetName())
-                .orElseThrow(() -> new BusinessException("Asset not found for customer"));
+        // Müşteri ve asset doğrulaması
+        var customer = customerRepository.findById(orderDto.getCustomerId())
+                .orElseThrow(() -> new EntityNotFoundException("Customer not found with id: " + orderDto.getCustomerId()));
 
-        BigDecimal totalValue = orderDto.getPrice().multiply(orderDto.getSize());
-        OrderSide side = OrderSide.valueOf(orderDto.getOrderSide().toUpperCase());
-
-        if (side == OrderSide.BUY) {
-            Asset tryAsset = assetRepository.findByCustomerIdAndAssetName(orderDto.getCustomerId(), "TRY")
-                    .orElseThrow(() -> new BusinessException("TRY asset not found for BUY order"));
-
-            if (tryAsset.getUsableSize().compareTo(totalValue) < 0) {
-                throw new BusinessException("Insufficient TRY balance for BUY order");
-            }
-
-            tryAsset.setUsableSize(tryAsset.getUsableSize().subtract(totalValue));
-            assetRepository.save(tryAsset);
-        } else {
-            if (asset.getUsableSize().compareTo(orderDto.getSize()) < 0) {
-                throw new BusinessException("Insufficient asset size for SELL order");
-            }
-
-            asset.setUsableSize(asset.getUsableSize().subtract(orderDto.getSize()));
-            assetRepository.save(asset);
-        }
+        var asset = assetRepository.findByAssetName(orderDto.getAssetName())
+                .orElseThrow(() -> new EntityNotFoundException("Asset not found with name: " + orderDto.getAssetName()));
 
         Order order = orderMapper.toEntity(orderDto);
+        order.setCustomerId(customer.getId());
+        order.setAssetName(asset.getAssetName());
         order.setStatus(OrderStatus.PENDING);
         order.setCreateDate(LocalDateTime.now());
-        orderRepository.save(order);
 
-        log.info("Order created successfully. OrderId={}, status={}", order.getId(), order.getStatus());
-        return orderMapper.toDto(order);
+        // Fiyat validasyonu
+        if (order.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Order price must be greater than 0");
+        }
+
+        Order savedOrder = orderRepository.save(order);
+
+        log.info("Order created successfully with id={}, type={}, asset={}",
+                savedOrder.getId(), savedOrder.getOrderSide(), savedOrder.getAssetName());
+
+        return orderMapper.toDto(savedOrder);
     }
 
     @Override
-    public List<OrderDto> listOrdersByCustomer(Long customerId) {
+    @Transactional(readOnly = true)
+    public List<OrderDto> getOrdersByCustomer(Long customerId) {
+        log.debug("Fetching all orders for customerId={}", customerId);
         return orderRepository.findByCustomerId(customerId)
                 .stream()
                 .map(orderMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override
-    public void cancelOrder(Long orderId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new BusinessException("Order not found"));
-
-        if (order.getStatus() != OrderStatus.PENDING) {
-            throw new BusinessException("Only PENDING orders can be canceled");
-        }
-
-        Asset asset = assetRepository.findByCustomerIdAndAssetName(order.getCustomerId(), order.getAssetName())
-                .orElseThrow(() -> new BusinessException("Asset not found for order"));
-
-        // Refund logic
-        if (order.getOrderSide() == OrderSide.BUY) {
-            Asset tryAsset = assetRepository.findByCustomerIdAndAssetName(order.getCustomerId(), "TRY")
-                    .orElseThrow(() -> new BusinessException("TRY asset not found during cancel"));
-            BigDecimal refundValue = order.getPrice().multiply(order.getSize());
-            tryAsset.setUsableSize(tryAsset.getUsableSize().add(refundValue));
-            assetRepository.save(tryAsset);
-        } else {
-            asset.setUsableSize(asset.getUsableSize().add(order.getSize()));
-            assetRepository.save(asset);
-        }
-
-        order.setStatus(OrderStatus.CANCELED);
-        orderRepository.save(order);
+    @Transactional(readOnly = true)
+    public OrderDto getOrderById(Long orderId) {
+        return orderRepository.findById(orderId)
+                .map(orderMapper::toDto)
+                .orElseThrow(() -> new EntityNotFoundException("Order not found with id: " + orderId));
     }
 }

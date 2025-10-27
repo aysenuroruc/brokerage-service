@@ -1,6 +1,6 @@
 package service;
 
-import dto.AssetDto;
+import model.dto.AssetDto;
 
 import java.util.List;
 

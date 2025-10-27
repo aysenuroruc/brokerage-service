@@ -19,5 +19,8 @@ public class Asset {
     private BigDecimal size;
     private BigDecimal usableSize;
 
+    @Version
+    private Long version;
+
     public Asset() {}
 }

@@ -1,4 +1,4 @@
-package dto;
+package model.dto;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
@@ -20,7 +20,7 @@ public class OrderDto {
     private String assetName;
 
     @NotBlank(message = "Order side cannot be blank (BUY or SELL)")
-    private String orderSide; // Could be enum in later refactor (BUY, SELL)
+    private String orderSide;
 
     @NotNull(message = "Order size cannot be null")
     @DecimalMin(value = "0.01", message = "Order size must be greater than 0")
