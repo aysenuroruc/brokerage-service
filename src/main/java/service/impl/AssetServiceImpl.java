@@ -3,7 +3,7 @@ package service.impl;
 import model.dto.AssetDto;
 import exception.ResourceNotFoundException;
 import lombok.extern.slf4j.Slf4j;
-import mapper.AssetMapper;
+import model.mapper.AssetMapper;
 import model.entity.Asset;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

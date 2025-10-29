@@ -1,8 +1,7 @@
 package model.entity;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.math.BigDecimal;
 
@@ -10,17 +9,18 @@ import java.math.BigDecimal;
 @Table(name = "assets")
 @Getter
 @Setter
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class Asset {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private Long customerId;
-    private String assetName; // ASELS, TRY ..
+    private String assetName;
     private BigDecimal size;
     private BigDecimal usableSize;
 
     @Version
     private Long version;
-
-    public Asset() {}
 }

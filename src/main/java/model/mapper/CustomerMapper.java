@@ -1,4 +1,4 @@
-package mapper;
+package model.mapper;
 
 import model.dto.CustomerDto;
 import model.entity.Customer;

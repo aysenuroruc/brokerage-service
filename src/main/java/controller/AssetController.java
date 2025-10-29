@@ -9,14 +9,11 @@ import org.springframework.web.bind.annotation.*;
 import service.AssetService;
 
 import java.util.List;
-
 @RestController
 @RequestMapping("/api/assets")
 @RequiredArgsConstructor
 public class AssetController {
-
-    @Autowired
-    private AssetService assetService;
+    private final AssetService assetService;
 
     @GetMapping
     public ResponseEntity<List<AssetDto>> getAssets(

@@ -1,4 +1,4 @@
-package mapper;
+package model.mapper;
 
 import model.dto.OrderDto;
 import model.entity.Order;
