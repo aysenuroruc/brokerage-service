@@ -21,10 +21,7 @@ public class AdminController {
     @PostMapping("/{orderId}/match")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> matchOrder(@PathVariable Long orderId) {
-        log.info("Match order request for order: {}", orderId);
-
         orderService.matchOrder(orderId);
-
         return ResponseEntity.ok().build();
     }
 }
