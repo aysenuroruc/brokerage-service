@@ -7,11 +7,7 @@ import java.math.BigDecimal;
 
 @Entity
 @Table(name = "assets")
-@Getter
-@Setter
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
+@Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class Asset {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

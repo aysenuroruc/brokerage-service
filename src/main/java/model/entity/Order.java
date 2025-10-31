@@ -1,7 +1,9 @@
 package model.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import model.OrderSide;
 import model.OrderStatus;
@@ -11,8 +13,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "orders")
-@Getter
-@Setter
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor
 public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

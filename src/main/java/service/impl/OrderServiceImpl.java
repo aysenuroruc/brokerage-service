@@ -6,20 +6,21 @@ import model.OrderSide;
 import model.dto.OrderDto;
 import lombok.extern.slf4j.Slf4j;
 import model.entity.Asset;
-import model.entity.Customer;
+import model.entity.User;
 import model.mapper.OrderMapper;
 import model.OrderStatus;
 import model.entity.Order;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import repository.AssetRepository;
-import repository.CustomerRepository;
 import repository.OrderRepository;
+import repository.UserRepository;
 import service.OrderService;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -29,12 +30,19 @@ public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final OrderMapper orderMapper;
     private final AssetRepository assetRepository;
-    private final CustomerRepository customerRepository;
+    private final UserRepository userRepository;
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrderDto getOrderById(Long orderId) {
+        return orderRepository.findById(orderId).map(orderMapper::toDto)
+                .orElseThrow(() -> new EntityNotFoundException("Order not found"));
+    }
 
     @Override
     @Transactional
     public OrderDto createOrder(OrderDto orderDto) {
-        Customer customer = customerRepository.findById(orderDto.getCustomerId())
+        User user = userRepository.findById(orderDto.getCustomerId())
                 .orElseThrow(() -> new EntityNotFoundException("Customer not found with id: " + orderDto.getCustomerId()));
 
         Asset asset = assetRepository.findByCustomerIdAndAssetNameWithLock(orderDto.getCustomerId(), orderDto.getAssetName())
@@ -57,7 +65,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         Order order = orderMapper.toEntity(orderDto);
-        order.setCustomerId(customer.getId());
+        order.setCustomerId(user.getId());
         order.setAssetName(asset.getAssetName());
         order.setStatus(OrderStatus.PENDING);
         order.setCreateDate(LocalDateTime.now());
@@ -81,8 +89,8 @@ public class OrderServiceImpl implements OrderService {
         else {
             tryAsset.setUsableSize(tryAsset.getUsableSize().add(orderDto.getSize()));
         }
-        assetRepository.save(tryAsset);
 
+        assetRepository.save(tryAsset);
         return orderMapper.toDto(savedOrder);
     }
 
@@ -94,6 +102,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<OrderDto> getOrdersByCustomer(Long customerId) {
         return orderRepository.findByCustomerId(customerId)
                 .stream()

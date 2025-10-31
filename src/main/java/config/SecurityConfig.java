@@ -1,74 +1,51 @@
 package config;
 
-import model.entity.Customer;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
-import repository.CustomerRepository;
+import security.JwtUtil;
+
+import javax.crypto.spec.SecretKeySpec;
 
 @Configuration
-@EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
-    @Autowired
-    private CustomerRepository customerRepository;
-    /**
-     * Defines the admin user in memory.
-     */
-    @Bean
-    public UserDetailsService userDetailsService(PasswordEncoder encoder) {
-        UserDetails admin = User.builder()
-                .username("admin")
-                .password(encoder.encode("admin123"))
-                .roles("ADMIN")
-                .build();
-        return new InMemoryUserDetailsManager(admin);
-    }
-    @Bean
-    public PasswordEncoder encoder() {
-        return new BCryptPasswordEncoder();
+    private final JwtUtil jwtUtil;
+
+    public SecurityConfig(JwtUtil jwtUtil) {
+        this.jwtUtil = jwtUtil;
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(AbstractHttpConfigurer::disable) // CSRF disable for Postman tests
+                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/**").authenticated()
+                        .requestMatchers("/auth/**", "/h2-console/**").permitAll()
                         .anyRequest().authenticated()
                 )
-                .httpBasic(Customizer.withDefaults());
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(jwt -> jwt.decoder(jwtDecoder()))
+                );
+
+        // allow h2 console frames
+        http.headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
 
         return http.build();
     }
 
     @Bean
-    public AuthenticationManager authManager(HttpSecurity http) throws Exception {
-        return http.getSharedObject(AuthenticationManagerBuilder.class)
-                .userDetailsService(username -> {
-                    Customer customer = customerRepository.findByUsername(username)
-                            .orElseThrow(() -> new RuntimeException("User not found"));
-                    return org.springframework.security.core.userdetails.User.builder()
-                            .username(customer.getUsername())
-                            .password(customer.getPassword())
-                            .roles(customer.getRole().name())
-                            .build();
-                })
-                .passwordEncoder(encoder())
-                .and()
-                .build();
+    public JwtDecoder jwtDecoder(@Value("${app.jwt.secret}") String secret) {
+        byte[] keyBytes = secret.getBytes();
+        SecretKeySpec key = new SecretKeySpec(keyBytes, "HmacSHA256");
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(key).build();
+        // we do not set validators here to be permissive for tests; you may set audience/issuer validators
+        return decoder;
     }
 }
