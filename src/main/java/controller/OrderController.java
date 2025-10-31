@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import security.SecurityUtil;
 import service.OrderService;
 
+import java.net.URI;
 import java.util.List;
 
 @Slf4j
@@ -19,15 +20,22 @@ public class OrderController {
     private final OrderService orderService;
 
     @PostMapping
-    public ResponseEntity<OrderDto> createOrder(@RequestBody OrderDto orderDto) {
+    public ResponseEntity<OrderDto> createOrder(@PathVariable Long customerId, @RequestBody OrderDto orderDto) {
         Long currentCustomer = SecurityUtil.currentCustomerIdOrNull();
         boolean isAdmin = SecurityUtil.isAdmin();
+
+        if (orderDto.getCustomerId() == null) {
+            orderDto.setCustomerId(customerId);
+        } else if (!orderDto.getCustomerId().equals(customerId)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
 
         if (!isAdmin && (currentCustomer == null || !currentCustomer.equals(orderDto.getCustomerId()))) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         OrderDto savedOrder = orderService.createOrder(orderDto);
-        return ResponseEntity.ok(savedOrder);
+        URI location = URI.create(String.format("/api/%d/orders/%d", savedOrder.getCustomerId(), savedOrder.getId()));
+        return ResponseEntity.created(location).body(savedOrder);
     }
 
     @DeleteMapping("/{orderId}")
@@ -35,11 +43,8 @@ public class OrderController {
         Long currentCustomer = SecurityUtil.currentCustomerIdOrNull();
         boolean isAdmin = SecurityUtil.isAdmin();
 
-        OrderDto order = orderService.getOrderById(orderId);
-        if (!isAdmin) {
-            if (currentCustomer == null || !currentCustomer.equals(order.getCustomerId())) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-            }
+        if (!isAdmin && (currentCustomer == null || !currentCustomer.equals(customerId))) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         orderService.cancelOrder(customerId, orderId);
         return ResponseEntity.noContent().build();

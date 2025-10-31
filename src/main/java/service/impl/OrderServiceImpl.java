@@ -96,9 +96,14 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public void cancelOrder(Long customerId, Long orderId) {
-        orderRepository.findById(orderId)
+        Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new EntityNotFoundException("Order not found with id: " + orderId));
-        orderRepository.deleteById(orderId);
+
+        if (OrderStatus.PENDING.equals(order.getStatus())) {
+            throw new IllegalStateException("Only pending orders can be cancelled");
+        }
+        order.setStatus(OrderStatus.CANCELED);
+        orderRepository.save(order);
     }
 
     @Override
