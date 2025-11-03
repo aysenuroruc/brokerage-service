@@ -42,55 +42,18 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderDto createOrder(OrderDto orderDto) {
-        User user = userRepository.findById(orderDto.getCustomerId())
-                .orElseThrow(() -> new EntityNotFoundException("Customer not found with id: " + orderDto.getCustomerId()));
+        User user = findUser(orderDto.getCustomerId());
+        Asset asset = findAsset(orderDto.getCustomerId(), orderDto.getAssetName());
+        Asset tryAsset = findAsset(orderDto.getCustomerId(), "TRY");
 
-        Asset asset = assetRepository.findByCustomerIdAndAssetNameWithLock(orderDto.getCustomerId(), orderDto.getAssetName())
-                .orElseThrow(() -> new EntityNotFoundException("Asset not found with name: " + orderDto.getAssetName()));
+        validateOrderBalance(orderDto, asset, tryAsset);
 
-
-        if (orderDto.getOrderSide().equals(OrderSide.BUY.name())) {
-            if (asset.getUsableSize().intValue() - orderDto.getSize().intValue() <= 0) {
-                throw new IllegalArgumentException("asset usable size not enough");
-            }
-        }
-
-        Asset tryAsset = assetRepository.findByCustomerIdAndAssetNameWithLock(orderDto.getCustomerId(), "TRY")
-                .orElseThrow(() -> new EntityNotFoundException("TRY Asset not found with name: " + orderDto.getAssetName()));
-
-        if (orderDto.getOrderSide().equals(OrderSide.BUY.name())) {
-            if (tryAsset.getUsableSize().subtract(orderDto.getSize().multiply(orderDto.getPrice())).compareTo(BigDecimal.ZERO) <= 0) {
-                throw new IllegalArgumentException("try not enough");
-            }
-        }
-
-        Order order = orderMapper.toEntity(orderDto);
-        order.setCustomerId(user.getId());
-        order.setAssetName(asset.getAssetName());
-        order.setStatus(OrderStatus.PENDING);
-        order.setCreateDate(LocalDateTime.now());
-
+        Order order = buildOrder(orderDto, user, asset);
         Order savedOrder = orderRepository.save(order);
+        logOrderCreation(savedOrder);
 
-        log.info("Order created successfully with id={}, type={}, asset={}",
-                savedOrder.getId(), savedOrder.getOrderSide(), savedOrder.getAssetName());
+        updateAssetBalances(orderDto, asset, tryAsset);
 
-        if (orderDto.getOrderSide().equals(OrderSide.BUY.name())) {
-            asset.setUsableSize(asset.getUsableSize().subtract(orderDto.getSize()));
-        }
-        else {
-            asset.setUsableSize(asset.getUsableSize().add(orderDto.getSize()));
-        }
-        assetRepository.save(asset);
-
-        if (orderDto.getOrderSide().equals(OrderSide.BUY.name())) {
-            tryAsset.setUsableSize(tryAsset.getUsableSize().subtract(orderDto.getSize()));
-        }
-        else {
-            tryAsset.setUsableSize(tryAsset.getUsableSize().add(orderDto.getSize()));
-        }
-
-        assetRepository.save(tryAsset);
         return orderMapper.toDto(savedOrder);
     }
 
@@ -137,4 +100,58 @@ public class OrderServiceImpl implements OrderService {
 
         log.info("Order {} matched successfully", orderId);
     }
+
+    private User findUser(Long customerId) {
+        return userRepository.findById(customerId)
+                .orElseThrow(() -> new EntityNotFoundException("Customer not found with id: " + customerId));
+    }
+
+    private Asset findAsset(Long customerId, String assetName) {
+        return assetRepository.findByCustomerIdAndAssetNameWithLock(customerId, assetName)
+                .orElseThrow(() -> new EntityNotFoundException("Asset not found with name: " + assetName));
+    }
+
+    private void validateOrderBalance(OrderDto orderDto, Asset asset, Asset tryAsset) {
+        if (orderDto.getOrderSide().equals(OrderSide.BUY.name())) {
+            if (tryAsset.getUsableSize()
+                    .subtract(orderDto.getSize().multiply(orderDto.getPrice()))
+                    .compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("TRY balance not enough");
+            }
+        } else {
+            if (asset.getUsableSize().compareTo(orderDto.getSize()) < 0) {
+                throw new IllegalArgumentException("Asset usable size not enough");
+            }
+        }
+    }
+
+    private Order buildOrder(OrderDto orderDto, User user, Asset asset) {
+        Order order = orderMapper.toEntity(orderDto);
+        order.setCustomerId(user.getId());
+        order.setAssetName(asset.getAssetName());
+        order.setStatus(OrderStatus.PENDING);
+        order.setCreateDate(LocalDateTime.now());
+        return order;
+    }
+
+    private void logOrderCreation(Order order) {
+        log.info("Order created successfully with id={}, type={}, asset={}",
+                order.getId(), order.getOrderSide(), order.getAssetName());
+    }
+
+    private void updateAssetBalances(OrderDto orderDto, Asset asset, Asset tryAsset) {
+        if (orderDto.getOrderSide().equals(OrderSide.BUY.name())) {
+            tryAsset.setUsableSize(tryAsset.getUsableSize()
+                    .subtract(orderDto.getSize().multiply(orderDto.getPrice())));
+            asset.setUsableSize(asset.getUsableSize().add(orderDto.getSize()));
+        } else {
+            asset.setUsableSize(asset.getUsableSize().subtract(orderDto.getSize()));
+            tryAsset.setUsableSize(tryAsset.getUsableSize()
+                    .add(orderDto.getSize().multiply(orderDto.getPrice())));
+        }
+
+        assetRepository.save(asset);
+        assetRepository.save(tryAsset);
+    }
+
 }
